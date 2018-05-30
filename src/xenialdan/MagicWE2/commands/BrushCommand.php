@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace xenialdan\MagicWE2\commands;
 
 use pocketmine\command\CommandSender;
-use pocketmine\event\TranslationContainer;
+use pocketmine\lang\TranslationContainer;
 use pocketmine\form\CustomForm;
 use pocketmine\form\element\CustomFormElement;
 use pocketmine\form\element\Dropdown;
