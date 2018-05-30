@@ -1,9 +1,6 @@
 <?php
-
 declare(strict_types=1);
-
 namespace xenialdan\MagicWE2\commands;
-
 use pocketmine\command\CommandSender;
 use pocketmine\lang\TranslationContainer;
 use pocketmine\form\CustomForm;
@@ -27,7 +24,6 @@ use pocketmine\utils\TextFormat;
 use xenialdan\MagicWE2\API;
 use xenialdan\MagicWE2\Loader;
 use xenialdan\MagicWE2\WEException;
-
 class BrushCommand extends WECommand{
 	public function __construct(Plugin $plugin){
 		parent::__construct("/brush", $plugin);
@@ -35,7 +31,6 @@ class BrushCommand extends WECommand{
 		$this->setDescription("Opens the brush tool menu");
 		$this->setUsage("//brush");
 	}
-
 	public function execute(CommandSender $sender, string $commandLabel, array $args){
 		/** @var Player $sender */
 		$return = $sender->hasPermission($this->getPermission());
@@ -47,7 +42,7 @@ class BrushCommand extends WECommand{
 		try{
 			if ($sender instanceof Player){
 				$sender->sendForm(
-					$sender->sendMessage(Loader::$prefix . TextFormat::BOLD . TextFormat::DARK_PURPLE . $lang->translateString('ui.brush.title'), [
+					new class(Loader::$prefix . TextFormat::BOLD . TextFormat::DARK_PURPLE . $lang->translateString('ui.brush.title'), [
 						new Dropdown($lang->translateString('ui.brush.options.type.title'), [
 							$lang->translateString('ui.brush.options.type.sphere'),
 							$lang->translateString('ui.brush.options.type.cylinder'),
