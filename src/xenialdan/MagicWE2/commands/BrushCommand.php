@@ -47,7 +47,7 @@ class BrushCommand extends WECommand{
 		try{
 			if ($sender instanceof Player){
 				$sender->sendForm(
-					new class(Loader::$prefix . TextFormat::BOLD . TextFormat::DARK_PURPLE . $lang->translateString('ui.brush.title'), [
+					$sender->sendMessage(Loader::$prefix . TextFormat::BOLD . TextFormat::DARK_PURPLE . $lang->translateString('ui.brush.title'), [
 						new Dropdown($lang->translateString('ui.brush.options.type.title'), [
 							$lang->translateString('ui.brush.options.type.sphere'),
 							$lang->translateString('ui.brush.options.type.cylinder'),
