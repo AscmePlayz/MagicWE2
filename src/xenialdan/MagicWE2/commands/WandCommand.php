@@ -34,7 +34,7 @@ class WandCommand extends WECommand{
 		$lang = Loader::getInstance()->getLanguage();
 		try{
 			$item = ItemFactory::get(ItemIds::WOODEN_AXE);
-			$item->addEnchantment(Enchantment::getEnchantment(Enchantment::PROTECTION));
+			$item->addEnchantment(EnchantmentInstance::getEnchantment(EnchantmentInstance::PROTECTION));
 			$item->setCustomName(Loader::$prefix . TextFormat::BOLD . TextFormat::DARK_PURPLE . 'Wand');
 			$item->setLore([//TODO translation
 				'Left click a block to set the position 1 of a selection',
