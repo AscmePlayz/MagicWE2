@@ -11,16 +11,17 @@ use pocketmine\item\Item;
 use pocketmine\item\ItemBlock;
 use pocketmine\item\ItemFactory;
 use pocketmine\level\Level;
+use pocketmine\level\Position;
 use pocketmine\math\Vector3;
-use pocketmine\nbt\NBT;
+use pocketmine\nbt\LittleEndianNBTStream;
 use pocketmine\nbt\tag\CompoundTag;
 use pocketmine\nbt\tag\NamedTag;
 use pocketmine\Player;
 use pocketmine\Server;
 use pocketmine\utils\TextFormat;
+use xenialdan\MagicWE2\shape\Custom;
 use xenialdan\MagicWE2\shape\ShapeGenerator;
 use xenialdan\MagicWE2\task\AsyncFillTask;
-
 
 class API{
 	/**
@@ -125,7 +126,7 @@ class API{
 	 * @param Session|null $session
 	 * @param Block[] $newblocks
 	 * @param array ...$flagarray
-	 * @return string
+	 * @return bool
 	 */
 	public static function fill(Selection $selection, ?Session $session, $newblocks = [], ...$flagarray){
 		$flags = self::flagParser($flagarray);
@@ -153,7 +154,7 @@ class API{
 			}
 			$undoClipboard = new Clipboard();
 			$undoClipboard->setData($blocks);
-		} catch (WEException $exception){
+		} catch (\Exception $exception){
 			if (!is_null($session)) $session->getPlayer()->sendMessage(Loader::$prefix . TextFormat::RED . $exception->getMessage());
 			return false;
 		}
@@ -205,7 +206,7 @@ class API{
 			}
 			$undoClipboard = new Clipboard();
 			$undoClipboard->setData($blocks);
-		} catch (WEException $exception){
+		} catch (\Exception $exception){
 			if (!is_null($session)) $session->getPlayer()->sendMessage(Loader::$prefix . TextFormat::RED . $exception->getMessage());
 			return false;
 		}
@@ -234,7 +235,7 @@ class API{
 			else
 				$clipboard->setOffset($selection->getMinVec3()->subtract($session->getPlayer())->floor());//SUBTRACT THE LEAST X Y Z OF SELECTION //TODO check if player less than minvec
 			$session->setClipboards([0 => $clipboard]);// TODO Multiple clipboards
-		} catch (WEException $exception){
+		} catch (\Exception $exception){
 			$session->getPlayer()->sendMessage(Loader::$prefix . TextFormat::RED . $exception->getMessage());
 			return false;
 		}
@@ -242,17 +243,26 @@ class API{
 		return true;
 	}
 
-	public static function paste(Clipboard $clipboard, Session $session, ...$flagarray){//TODO: maybe clone clipboard
+	/**
+	 * @param Clipboard $clipboard
+	 * @param null|Session $session
+	 * @param Position $target
+	 * @param array ...$flagarray
+	 * @return bool
+	 */
+	public static function paste(Clipboard $clipboard, ?Session $session, Position $target, ...$flagarray){//TODO: maybe clone clipboard
 		$flags = self::flagParser($flagarray);
 		$changed = 0;
 		$time = microtime(TRUE);
 		try{
 			$blocks = [];
 			foreach ($clipboard->getData() as $block1){
-				$block = clone $block1;
 				/** @var Block $block */
-				$blockvec3 = $session->getPlayer()->add($block);
-				$level = $session->getPlayer()->getLevel() ?? $block->getLevel();
+				$block = clone $block1;
+				if (self::hasFlag($flags, self::FLAG_PASTE_WITHOUT_AIR) && $block->getId() === BlockIds::AIR)
+					continue;
+				$blockvec3 = $target->add($block);
+				$level = $target->getLevel() ?? $block->getLevel();
 				if (!self::hasFlag($flags, self::FLAG_UNCENTERED))
 					$blockvec3 = $blockvec3->add($clipboard->getOffset());
 				$oldblock = $level->getBlock($blockvec3->floor());
@@ -263,12 +273,16 @@ class API{
 			}
 			$undoClipboard = new Clipboard();
 			$undoClipboard->setData($blocks);
-		} catch (WEException $exception){
-			$session->getPlayer()->sendMessage(Loader::$prefix . TextFormat::RED . $exception->getMessage());
+		} catch (\Exception $exception){
+			if (!is_null($session)) $session->getPlayer()->sendMessage(Loader::$prefix . TextFormat::RED . $exception->getMessage());
 			return false;
 		}
-		$session->addUndo($undoClipboard);
-		$session->getPlayer()->sendMessage(Loader::$prefix . TextFormat::GREEN . "Pasted clipboard " . (self::hasFlag($flags, self::FLAG_UNCENTERED) ? "absolute" : "relative") . " to your position, took " . round((microtime(TRUE) - $time), 2) . "s, " . $changed . " blocks changed.");
+		if (!is_null($session)){
+			$session->addUndo($undoClipboard);
+			$session->getPlayer()->sendMessage(Loader::$prefix . TextFormat::GREEN . "Pasted clipboard " . (self::hasFlag($flags, self::FLAG_UNCENTERED) ? "absolute" : "relative") . " to your position, took " . round((microtime(TRUE) - $time), 2) . "s, " . $changed . " blocks changed.");
+		} else{
+			Server::getInstance()->getLogger()->info(Loader::$prefix . TextFormat::GREEN . "Pasted clipboard " . (self::hasFlag($flags, self::FLAG_UNCENTERED) ? "absolute" : "relative") . " to your position, took " . round((microtime(TRUE) - $time), 2) . "s, " . $changed . " blocks changed.");
+		}
 		return true;
 	}
 
@@ -354,36 +368,65 @@ class API{
 		$shape = null;
 		$lang = Loader::getInstance()->getLanguage();
 		if (!$settings instanceof CompoundTag) return false;
-		switch ($settings->getString("type", $lang->translateString('ui.brush.options.type.square'))){//TODO use/parse int as type
-			case $lang->translateString('ui.brush.options.type.square'): {
-				$shape = ShapeGenerator::getShape($target->getLevel(), ShapeGenerator::TYPE_SQUARE, self::compoundToArray($settings));
+		$messages = [];
+		$error = false;
+		switch ($settings->getString("type", $lang->translateString('ui.brush.options.type.square'))){
+			//TODO use/parse int as type !! IMPORTANT TODO !!
+			//TODO use/parse int as type !! IMPORTANT TODO !!
+			//TODO use/parse int as type !! IMPORTANT TODO !!
+			//TODO use/parse int as type !! IMPORTANT TODO !!
+			//TODO use/parse int as type !! IMPORTANT TODO !!
+			case $lang->translateString('ui.brush.select.type.cuboid'): {
+				$shape = ShapeGenerator::getShape($target->getLevel(), ShapeGenerator::TYPE_CUBOID, self::compoundToArray($settings));
 				$shape->setCenter($target->asVector3());//TODO fix the offset?: if you have a uneven number, the center actually is between 2 blocks
+				return self::fill($shape, $session, self::blockParser($shape->options['blocks'], $messages, $error), ...$flagarray);
 				break;
 			}
-			case $lang->translateString('ui.brush.options.type.sphere'): {
+			case $lang->translateString('ui.brush.select.type.sphere'): {
 				$shape = ShapeGenerator::getShape($target->getLevel(), ShapeGenerator::TYPE_SPHERE, self::compoundToArray($settings));
 				$shape->setCenter($target->asVector3());//TODO fix the offset?: if you have a uneven number, the center actually is between 2 blocks
+				return self::fill($shape, $session, self::blockParser($shape->options['blocks'], $messages, $error), ...$flagarray);
+				break;
+			}
+			case $lang->translateString('ui.brush.select.type.clipboard'): {
+				$clipboard = $session->getClipboards()[0]??null;
+				if(is_null($clipboard)){
+					$session->getPlayer()->sendMessage(TextFormat::RED . "You have no clipboard - create one first");
+					return false;
+				}
+				return self::paste($clipboard, $session, $target, ...$flagarray);
 				break;
 			}
 			case null:
-			default:
-				;
+			default:{
+				$session->getPlayer()->sendMessage("Unknown shape");
+				return false;
+			}
 		}
-		if (is_null($shape)){
-			$session->getPlayer()->sendMessage("Unknown shape");
-			return false;
-		}
+		return false;
+	}
+
+	/**
+	 * @param Block $target
+	 * @param NamedTag $settings
+	 * @param Session $session
+	 * @param array[] $flagarray
+	 * @return bool
+	 */
+	public static function floodArea(Block $target, NamedTag $settings, Session $session, array ...$flagarray){ //TODO
+		if (!$settings instanceof CompoundTag) return null;
+		$shape = ShapeGenerator::getShape($target->getLevel(), ShapeGenerator::TYPE_FLOOD, self::compoundToArray($settings));
+		$shape->setCenter($target->asVector3());//TODO fix the offset?: if you have a uneven number, the center actually is between 2 blocks
 		$messages = [];
 		$error = false;
 		return self::fill($shape, $session, self::blockParser($shape->options['blocks'], $messages, $error), ...$flagarray);
 	}
 
 	public static function compoundToArray(CompoundTag $compoundTag){
-		$nbt = new NBT();
+		$nbt = new LittleEndianNBTStream();
 		$nbt->setData($compoundTag);
 		return $nbt->getArray();
 	}
-
 
 	public static function &addSession(Session $session){
 		self::$sessions[$session->getPlayer()->getLowerCaseName()] = $session;
@@ -600,6 +643,6 @@ class API{
 		$currentrotationindex += $timesRotate;
 		#return $rotation[($currentrotationindex % count($rotation))];
 		$extra = intval($meta / count($rotation));
-		return $rotation[$currentrotationindex % count($rotation)] + ($extra * count($rotation));
+		return $rotation[$currentrotationindex % count($rotation)] + ($extra * count($rotation)) % 16;
 	}
 }
